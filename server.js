@@ -1,10 +1,11 @@
 const express = require("express");
 const path = require("path");
+const crypto = require("crypto");
 const Database = require("better-sqlite3");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_KEY = process.env.ADMIN_KEY || "arijewel-admin";
+const ADMIN_KEY = process.env.ADMIN_KEY || "";
 const CULQI_PUBLIC_KEY = process.env.CULQI_PUBLIC_KEY || "";
 const CULQI_PRIVATE_KEY = process.env.CULQI_PRIVATE_KEY || "";
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
@@ -165,9 +166,30 @@ app.post("/api/payments/charge", async (req, res) => {
   res.json({ok:true,paymentId:data.id});
 });
 
+const adminSessions = new Map();
+
+app.post("/api/admin/login", (req, res) => {
+  const password = String(req.body.password || "");
+  if (!ADMIN_KEY || password.length !== ADMIN_KEY.length || !crypto.timingSafeEqual(Buffer.from(password), Buffer.from(ADMIN_KEY))) {
+    return res.status(401).json({ error: "Contraseña incorrecta." });
+  }
+  const token = crypto.randomBytes(32).toString("hex");
+  adminSessions.set(token, Date.now() + 8 * 60 * 60 * 1000);
+  res.json({ ok: true, token });
+});
+
+app.post("/api/admin/logout", (req, res) => {
+  const token = String(req.headers.authorization || "").replace(/^Bearer\\s+/i, "");
+  adminSessions.delete(token);
+  res.json({ ok: true });
+});
+
 function admin(req, res, next) {
-  if (req.headers["x-admin-key"] !== ADMIN_KEY) {
-    return res.status(401).json({ error: "No autorizado." });
+  const token = String(req.headers.authorization || "").replace(/^Bearer\\s+/i, "");
+  const expires = adminSessions.get(token);
+  if (!token || !expires || expires < Date.now()) {
+    adminSessions.delete(token);
+    return res.status(401).json({ error: "Sesión vencida. Inicia sesión nuevamente." });
   }
   next();
 }
