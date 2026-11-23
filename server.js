@@ -179,13 +179,13 @@ app.post("/api/admin/login", (req, res) => {
 });
 
 app.post("/api/admin/logout", (req, res) => {
-  const token = String(req.headers.authorization || "").replace(/^Bearer\\s+/i, "");
+  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   adminSessions.delete(token);
   res.json({ ok: true });
 });
 
 function admin(req, res, next) {
-  const token = String(req.headers.authorization || "").replace(/^Bearer\\s+/i, "");
+  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   const expires = adminSessions.get(token);
   if (!token || !expires || expires < Date.now()) {
     adminSessions.delete(token);
